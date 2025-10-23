@@ -2,8 +2,8 @@
 echo Starting Battle WebSocket Server...
 
 REM Clear any existing environment variables
-set SUPABASE_URL=
-set SUPABASE_KEY=
+set SUPABASE_URL=https://ratxqmbqzwbvfgsonlrd.supabase.co
+set SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdHhxbWJxendidmZnc29ubHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDI0NDAsImV4cCI6MjA1OTc3ODQ0MH0.HJ9nQbvVvVisvQb6HMVMlmQBVmW7Ie42Z6Afdwn8W2M
 
 REM Load from .env file if it exists (you need to create this file with your URLs)
 if exist .env (

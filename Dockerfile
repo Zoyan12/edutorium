@@ -1,12 +1,10 @@
-# Multi-stage Dockerfile for Edutorium Battle System
-# Stage 1: Build stage for PHP dependencies
+# Optimized Dockerfile for Coolify deployment
 FROM composer:2.6 AS composer-stage
 
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-# Stage 2: Production stage
 FROM php:8.2-apache
 
 # Install system dependencies
@@ -29,7 +27,7 @@ RUN docker-php-ext-install \
     sockets
 
 # Enable Apache modules
-RUN a2enmod rewrite headers ssl
+RUN a2enmod rewrite headers ssl expires deflate
 
 # Set working directory
 WORKDIR /var/www/html
@@ -45,7 +43,7 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod +x battle-server.php
 
-# Create Apache virtual host configuration
+# Create a simple Apache configuration
 RUN echo '<VirtualHost *:80>\n\
     DocumentRoot /var/www/html\n\
     ServerName localhost\n\
@@ -55,28 +53,11 @@ RUN echo '<VirtualHost *:80>\n\
         Require all granted\n\
     </Directory>\n\
     \n\
-    # Enable compression\n\
-    LoadModule deflate_module modules/mod_deflate.so\n\
-    <Location />\n\
-        SetOutputFilter DEFLATE\n\
-        SetEnvIfNoCase Request_URI \\\n\
-            \\.(?:gif|jpe?g|png)$ no-gzip dont-vary\n\
-        SetEnvIfNoCase Request_URI \\\n\
-            \\.(?:exe|t?gz|zip|bz2|sit|rar)$ no-gzip dont-vary\n\
-    </Location>\n\
-    \n\
     # Security headers\n\
     Header always set X-Content-Type-Options nosniff\n\
     Header always set X-Frame-Options DENY\n\
     Header always set X-XSS-Protection "1; mode=block"\n\
     Header always set Referrer-Policy "strict-origin-when-cross-origin"\n\
-    \n\
-    # Cache static assets\n\
-    <LocationMatch "\\.(css|js|png|jpg|jpeg|gif|ico|svg)$">\n\
-        ExpiresActive On\n\
-        ExpiresDefault "access plus 1 month"\n\
-        Header append Cache-Control "public"\n\
-    </LocationMatch>\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
 # Create startup script
@@ -99,8 +80,8 @@ RUN chmod +x /usr/local/bin/start-services.sh
 # Expose ports
 EXPOSE 80 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check - simplified for Coolify
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost/ || exit 1
 
 # Start services

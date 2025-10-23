@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  edutorium-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
+    container_name: edutorium-battle-system
+    ports:
+      - "80:80"      # Apache web server
+      - "8080:8080"  # WebSocket server
+    environment:
+      - APP_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL:-https://ratxqmbqzwbvfgsonlrd.supabase.co}
+      - SUPABASE_KEY=${SUPABASE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdHhxbWJxendidmZnc29ubHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDI0NDAsImV4cCI6MjA1OTc3ODQ0MH0.HJ9nQbvVvVisvQb6HMVMlmQBVmW7Ie42Z6Afdwn8W2M}
+    volumes:
+      - ./logs:/var/log/apache2
+      - ./uploads:/var/www/html/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
