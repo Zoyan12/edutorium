@@ -3479,9 +3479,16 @@ $websocketUrl = getWebSocketUrl();
         // Login to battle server
         async function loginToBattleServer() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    console.error('User not authenticated');
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError || !user) {
+                    console.error('User not authenticated:', userError);
+                    return;
+                }
+                
+                // Get the current session to access the access token
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError || !session) {
+                    console.error('No active session:', sessionError);
                     return;
                 }
                 
@@ -3497,9 +3504,10 @@ $websocketUrl = getWebSocketUrl();
                     return;
                 }
                 
-                // Send login info to server
+                // Send login info to server with authentication token
                 sendToServer({
                     action: 'login',
+                    token: session.access_token, // Include the Supabase access token
                     userId: user.id,
                     username: profile.full_name || profile.username || 'Player',
                     avatar: profile.avatar_url || '../assets/default.png',
