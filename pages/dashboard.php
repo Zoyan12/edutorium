@@ -3522,9 +3522,10 @@ $websocketUrl = getWebSocketUrl();
         // Send message to server
         function sendToServer(message) {
             if (battleSocket && battleSocket.readyState === WebSocket.OPEN) {
+                console.log('Sending message to server:', message);
                 battleSocket.send(JSON.stringify(message));
             } else {
-                console.error('WebSocket is not connected');
+                console.error('WebSocket is not connected, readyState:', battleSocket ? battleSocket.readyState : 'null');
             }
         }
         
@@ -3544,6 +3545,12 @@ $websocketUrl = getWebSocketUrl();
                     
                 case 'matchmaking_cancelled':
                     console.log('Matchmaking cancelled:', data.message);
+                    break;
+                    
+                case 'ping':
+                    // Respond to server ping to keep connection alive
+                    console.log('Received ping from server, sending pong response');
+                    sendToServer({ action: 'pong' });
                     break;
                     
                 case 'pong':
@@ -3601,6 +3608,8 @@ $websocketUrl = getWebSocketUrl();
         
         // Find a match
         function findMatch() {
+            console.log('findMatch() called, battleConfig:', battleConfig);
+            
             // Set default values for quick battle if not specified
             if (battleConfig.battleType === 'quick') {
                 // For quick battles, default to 3 questions and medium difficulty
@@ -3612,6 +3621,7 @@ $websocketUrl = getWebSocketUrl();
                 }
             }
             
+            console.log('Sending find_match request with config:', battleConfig);
             sendToServer({
                 action: 'find_match',
                 config: battleConfig,
