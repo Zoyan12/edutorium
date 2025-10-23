@@ -3532,35 +3532,38 @@ $websocketUrl = getWebSocketUrl();
         function handleBattleServerMessage(data) {
             console.log('Received from server:', data);
             
-            switch (data.type) {
-                case 'loginSuccess':
+            switch (data.action) {
+                case 'login_success':
                     // After successful login, find a match
                     findMatch();
                     break;
                     
-                case 'waitingCount':
-                    // Update active searchers count
-                    document.getElementById('activeSearchers').textContent = data.count;
-                    
-                    // Update search message based on battle type
-                    const searchingMsg = document.querySelector('.searching-state h3');
-                    if (searchingMsg) {
-                        const battleType = data.battleType || battleConfig.battleType || 'arena';
-                        searchingMsg.textContent = battleType === 'quick' 
-                            ? 'Finding Quick Battle Opponent...' 
-                            : 'Finding Battle Arena Opponent...';
-                    }
+                case 'matchmaking_started':
+                    console.log('Matchmaking started:', data.message);
                     break;
                     
-                case 'matchFound':
+                case 'matchmaking_cancelled':
+                    console.log('Matchmaking cancelled:', data.message);
+                    break;
+                    
+                case 'pong':
+                    // Handle ping response
+                    break;
+                    
+                case 'opponent_disconnected':
+                    console.log('Opponent disconnected:', data.message);
+                    showToast('warning', 'Opponent Disconnected', data.message);
+                    break;
+                    
+                case 'match_found':
                     // Show opponent found state with real opponent data
-                    matchId = data.matchId;
+                    matchId = data.battle_id;
                     
                     // Update match found message based on battle type
                     const matchFoundMsg = document.querySelector('.opponent-found-state h3');
                     if (matchFoundMsg) {
                         const battleType = data.battleType || battleConfig.battleType || 'arena';
-                        matchFoundMsg.textContent = battleType === 'quick'
+                        matchFoundMsg.textContent = battleType === 'quick' 
                             ? 'Quick Battle Opponent Found!' 
                             : 'Battle Arena Opponent Found!';
                     }
@@ -3568,25 +3571,30 @@ $websocketUrl = getWebSocketUrl();
                     showOpponentFound(data.opponent);
                     break;
                     
-                case 'opponentReady':
+                case 'opponent_ready':
                     // Show that opponent is ready
                     showOpponentReady();
                     break;
                     
-                case 'bothReady':
+                case 'both_ready':
                     // Both players are ready, start countdown to battle
                     startBattleCountdown();
                     break;
                     
-                case 'battleStart':
+                case 'battle_start':
                     // Redirect to battle page
                     redirectToBattle();
                     break;
                     
                 case 'error':
-                    console.error('Server error:', data.error);
+                    console.error('Server error:', data.message);
                     // Show relevant error message to user
-                    showToast('error', 'Server error', data.error);
+                    showToast('error', 'Server error', data.message);
+                    break;
+                    
+                default:
+                    // Handle messages without explicit action field (battle data, results, etc.)
+                    console.log('Received message without action field:', data);
                     break;
             }
         }
