@@ -3700,7 +3700,7 @@ $websocketUrl = getWebSocketUrl();
                 // Tell server player is ready
                 sendToServer({
                     action: 'confirm_match',
-                    matchId: matchId
+                    battle_id: matchId
                 });
             });
         }
