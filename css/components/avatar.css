@@ -1,0 +1,9 @@
+.avatar-img {
+    width: 45px;  /* Adjust the size */
+    height: 45px; /* Keep it square */
+    border-radius: 50%; /* Makes it round */
+    margin-right: 10px;
+    margin-top: 7.5px;
+    object-fit: cover; /* Ensures it maintains aspect ratio without distortion */
+    border: 2px solid #ddd; /* Optional: Adds a border */
+}

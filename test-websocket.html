@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Server WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #console {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        .log {
+            margin: 5px 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .send { color: blue; }
+        .receive { color: green; }
+        .error { color: red; }
+        .info { color: gray; }
+        button {
+            padding: 5px 10px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Battle Server WebSocket Test</h1>
+    <div id="connection-status">Status: Disconnected</div>
+    <div class="mb-3">WebSocket URL: <span id="websocket-url"><?php echo getWebSocketUrl(); ?></span></div>
+    <div id="console"></div>
+    <div id="controls">
+        <button id="connectBtn">Connect</button>
+        <button id="loginBtn" disabled>Login</button>
+        <button id="findMatchBtn" disabled>Find Match</button>
+        <button id="heartbeatBtn" disabled>Send Heartbeat</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let userId = 'test-user-' + Math.floor(Math.random() * 1000);
+        let username = 'Test User';
+        
+        // Get the WebSocket URL from PHP (or use default if PHP didn't provide one)
+        const websocketUrlElement = document.getElementById('websocket-url');
+        const websocketUrl = websocketUrlElement.textContent || `ws://${window.location.hostname}:8080`;
+        
+        // DOM elements
+        const consoleElem = document.getElementById('console');
+        const statusElem = document.getElementById('connection-status');
+        const connectBtn = document.getElementById('connectBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const findMatchBtn = document.getElementById('findMatchBtn');
+        const heartbeatBtn = document.getElementById('heartbeatBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        
+        // Log to console
+        function log(message, type = 'info') {
+            const logItem = document.createElement('div');
+            logItem.className = `log ${type}`;
+            logItem.textContent = message;
+            consoleElem.appendChild(logItem);
+            consoleElem.scrollTop = consoleElem.scrollHeight;
+        }
+        
+        // Connect to WebSocket server
+        connectBtn.addEventListener('click', () => {
+            if (ws) {
+                log('Already connected, please disconnect first', 'error');
+                return;
+            }
+            
+            log(`Connecting to ${websocketUrl}...`);
+            
+            try {
+                ws = new WebSocket(websocketUrl);
+                
+                ws.onopen = (event) => {
+                    log('Connected to server', 'info');
+                    statusElem.textContent = 'Status: Connected';
+                    connectBtn.disabled = true;
+                    loginBtn.disabled = false;
+                    disconnectBtn.disabled = false;
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    log(`Received: ${event.data}`, 'receive');
+                    
+                    // Handle login success
+                    if (data.type === 'loginSuccess') {
+                        findMatchBtn.disabled = false;
+                        heartbeatBtn.disabled = false;
+                    }
+                };
+                
+                ws.onclose = (event) => {
+                    log('Disconnected from server', 'info');
+                    statusElem.textContent = 'Status: Disconnected';
+                    connectBtn.disabled = false;
+                    loginBtn.disabled = true;
+                    findMatchBtn.disabled = true;
+                    heartbeatBtn.disabled = true;
+                    disconnectBtn.disabled = true;
+                    ws = null;
+                };
+                
+                ws.onerror = (event) => {
+                    log('WebSocket error', 'error');
+                    statusElem.textContent = 'Status: Error';
+                };
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        });
+        
+        // Login to server
+        loginBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to server', 'error');
+                return;
+            }
+            
+            const message = {
+                action: 'login',
+                userId: userId,
+                username: username,
+                avatar: 'default-avatar.png'
+            };
+            
+            ws.send(JSON.stringify(message));
+            log(`Sent: ${JSON.stringify(message)}`, 'send');
+        });
+        
+        // Find match
+        findMatchBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to server', 'error');
+                return;
+            }
+            
+            const message = {
+                action: 'find_match',
+                config: {
+                    difficulty: 'medium',
+                    subject: 'general',
+                    questionCount: 5
+                }
+            };
+            
+            ws.send(JSON.stringify(message));
+            log(`Sent: ${JSON.stringify(message)}`, 'send');
+        });
+        
+        // Send heartbeat
+        heartbeatBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to server', 'error');
+                return;
+            }
+            
+            const message = {
+                action: 'heartbeat',
+                timestamp: Date.now()
+            };
+            
+            ws.send(JSON.stringify(message));
+            log(`Sent: ${JSON.stringify(message)}`, 'send');
+        });
+        
+        // Disconnect from server
+        disconnectBtn.addEventListener('click', () => {
+            if (!ws) {
+                log('Not connected to server', 'error');
+                return;
+            }
+            
+            ws.close();
+        });
+    </script>
+</body>
+</html> 

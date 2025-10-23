@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Edutorium</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components/auth.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="../index.html" class="back-link">← Back to Home</a>
+            <h1 class="logo">Edutorium</h1>
+            <h2>Create Account</h2>
+            
+            <form id="signupForm" class="auth-form">
+                <div id="errorContainer"></div>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required minlength="3" maxlength="20" 
+                           pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscore allowed">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required minlength="6" 
+                           autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="field">Field</label>
+                    <select id="field" required>
+                        <option value="">Select your field</option>
+                        <option value="JEE">JEE</option>
+                        <option value="NEET">NEET</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Create Account</button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Already have an account? <a href="login.html">Login</a></p>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { AuthUI } from '../js/components/AuthUI.js';
+        import { AuthManager } from '../js/auth/authManager.js';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize auth manager first
+            new AuthManager();
+            // Then initialize auth UI
+            new AuthUI();
+        });
+    </script>
+</body>
+</html> 

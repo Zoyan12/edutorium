@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Edutorium</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components/auth.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="../index.html" class="back-link">← Back to Home</a>
+            <h1 class="logo">Edutorium</h1>
+            <h2>Welcome Back</h2>
+            
+            <form id="loginForm" class="auth-form">
+                <div id="errorContainer"></div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <div class="form-actions">
+                    <a href="reset-password.html" class="forgot-password">Forgot Password?</a>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="signup.html">Sign up</a></p>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { AuthUI } from '../js/components/AuthUI.js';
+        import { AuthManager } from '../js/auth/authManager.js';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize auth manager first
+            new AuthManager();
+            // Then initialize auth UI
+            new AuthUI();
+        });
+    </script>
+</body>
+</html> 

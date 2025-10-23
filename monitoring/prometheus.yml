@@ -1,0 +1,44 @@
+# Prometheus configuration for Edutorium Battle System monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Edutorium application metrics
+  - job_name: 'edutorium-app'
+    static_configs:
+      - targets: ['edutorium-app:80']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # WebSocket server metrics (if exposed)
+  - job_name: 'edutorium-websocket'
+    static_configs:
+      - targets: ['edutorium-app:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Nginx metrics (if nginx-prometheus-exporter is used)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-proxy:9113']
+    scrape_interval: 30s
+    profiles:
+      - production
+
+  # Redis metrics (if redis-exporter is used)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    profiles:
+      - production

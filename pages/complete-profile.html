@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Profile - Edutorium</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components/auth.css">
+    <link rel="stylesheet" href="../css/components/profile.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1 class="logo">Edutorium</h1>
+            <h2 style="margin-bottom: 0;">Complete Your Profile</h2>
+            
+            <form id="profileForm" class="auth-form">
+                <div style="margin-top: 10px;" id="errorContainer"></div>
+                
+                <div style="margin-top: -10px;" class="form-group profile-picture-group">
+                    <label for="profilePicture">Profile Picture</label>
+                    <div class="profile-picture-upload">
+                        <input type="file" id="profilePicture" accept="image/*" class="hidden">
+                        <div class="profile-picture-preview">
+                            <img style="opacity: 0.75;" id="profilePreview" src="../assets/default.png" alt="Profile Preview">
+                            <div class="upload-overlay">
+                                <span>Click to upload</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" required pattern="[0-9]{10}" 
+                           title="Please enter a valid 10-digit phone number">
+                </div>
+                <div class="form-group">
+                    <label for="location">City/Town/Village</label>
+                    <input type="text" id="location" required>
+                </div>
+                <div class="form-group">
+                    <label for="education">Class</label>
+                    <select id="education" required>
+                        <option value="">Select your class</option>
+                        <option value="nine">9th</option>
+                        <option value="ten">10th</option>
+                        <option value="eleven">11th</option>
+                        <option value="twelve">12th</option>
+                        <option value="dropper">Dropper</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="board">Board</label>
+                    <select id="board" required>
+                        <option value="">Select your board</option>
+                        <option value="isce">ICSE</option>
+                        <option value="isc">ISC</option>
+                        <option value="state">State Board</option>
+                        <option value="cbse">CBSE</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Complete Profile</button>
+            </form>
+        </div>
+    </div>
+    <script type="module">
+        import { ProfileUI } from '../js/components/ProfileUI.js';
+        import { AuthManager } from '../js/auth/authManager.js';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize auth manager first
+            new AuthManager();
+            // Then initialize profile UI
+            new ProfileUI();
+        });
+    </script>
+</body>
+</html> 

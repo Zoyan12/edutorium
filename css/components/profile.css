@@ -1,0 +1,98 @@
+.profile-picture-group {
+    text-align: center;
+}
+
+.profile-picture-upload {
+    position: relative;
+    width: 65px;
+    height: 65px;
+    margin: 0 auto;
+    cursor: pointer;
+}
+
+.profile-picture-preview {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #e0e0e0;
+    position: relative;
+}
+
+.profile-picture-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.upload-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 50%;
+}
+
+.upload-overlay span {
+    color: white;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.profile-picture-upload:hover .upload-overlay {
+    opacity: 1;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Error and Success Messages */
+.message {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.message.error {
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+    color: #b91c1c;
+}
+
+.message.success {
+    background-color: #dcfce7;
+    border: 1px solid #22c55e;
+    color: #15803d;
+}
+
+/* Form Validation Styles */
+input:invalid,
+select:invalid {
+    border-color: #ef4444;
+}
+
+input:invalid:focus,
+select:invalid:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Required Field Indicator */
+label[for]:after {
+    content: " *";
+    color: #ef4444;
+}
+
+label[for="profilePicture"]:after {
+    content: " (Optional)";
+    color: #6b7280;
+} 
