@@ -27,7 +27,7 @@ RUN docker-php-ext-install \
     sockets
 
 # Enable Apache modules
-RUN a2enmod rewrite headers ssl expires deflate
+RUN a2enmod rewrite headers ssl expires deflate proxy proxy_wstunnel proxy_http
 
 # Set working directory
 WORKDIR /var/www/html
@@ -43,7 +43,7 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod +x battle-server.php
 
-# Create a simple Apache configuration
+# Create a simple Apache configuration with WebSocket proxy
 RUN echo '<VirtualHost *:80>\n\
     DocumentRoot /var/www/html\n\
     ServerName localhost\n\
@@ -52,6 +52,11 @@ RUN echo '<VirtualHost *:80>\n\
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
+    \n\
+    # WebSocket proxy\n\
+    ProxyPreserveHost On\n\
+    ProxyPass /ws/ ws://localhost:8080/\n\
+    ProxyPassReverse /ws/ ws://localhost:8080/\n\
     \n\
     # Security headers\n\
     Header always set X-Content-Type-Options nosniff\n\
