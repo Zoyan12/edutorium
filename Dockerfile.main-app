@@ -1,10 +1,4 @@
-# Simplified Main App Dockerfile (WebSocket Server Removed)
-FROM composer:2.6 AS composer-stage
-
-WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-scripts
-
+# Production Dockerfile for Edutorium Main Application
 FROM php:8.2-apache
 
 # Install system dependencies
@@ -13,26 +7,16 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     curl \
-    libcurl4-openssl-dev \
-    pkg-config \
-    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    zip \
-    curl
+RUN docker-php-ext-install pdo zip
 
 # Enable Apache modules
-RUN a2enmod rewrite headers ssl expires deflate
+RUN a2enmod rewrite
 
 # Set working directory
 WORKDIR /var/www/html
-
-# Copy composer dependencies from build stage
-COPY --from=composer-stage /app/vendor ./vendor
 
 # Copy application files
 COPY . .
@@ -41,7 +25,7 @@ COPY . .
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-# Create Apache configuration
+# Create Apache virtual host configuration
 RUN echo '<VirtualHost *:80>\n\
     DocumentRoot /var/www/html\n\
     ServerName localhost\n\
@@ -50,24 +34,10 @@ RUN echo '<VirtualHost *:80>\n\
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
-    \n\
-    # Security headers\n\
-    Header always set X-Content-Type-Options nosniff\n\
-    Header always set X-Frame-Options DENY\n\
-    Header always set X-XSS-Protection "1; mode=block"\n\
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"\n\
-    \n\
-    # Logging\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
 # Expose port
 EXPOSE 80
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
 
 # Start Apache
 CMD ["apache2-foreground"]

@@ -18,19 +18,26 @@ export class ProfileUI {
         // Extract the base path (e.g., /new)
         let basePath = path.split('/pages')[0];
         
-        // Handle root domain case (path is just "/")
+        // Normalize basePath
+        // If it's just "/", we want empty string for root domain
         if (basePath === '/') {
-            // Check if we're in a subdirectory by looking at document.location.pathname
-            const fullPath = document.location.pathname;
-            if (fullPath.includes('/client/')) {
-                basePath = '/client';
-            } else {
-                basePath = '';
-            }
+            basePath = '';
         }
         
         // Remove trailing slash to avoid double slashes
-        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+        basePath = basePath.endsWith('/') && basePath.length > 1 ? basePath.slice(0, -1) : basePath;
+        
+        return basePath;
+    }
+    
+    /**
+     * Build a URL properly, avoiding double slashes
+     */
+    buildUrl(path) {
+        const base = this.getBaseUrl();
+        // Ensure we don't create double slashes
+        const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+        return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
     }
 
     initializeEventListeners() {
@@ -97,7 +104,7 @@ export class ProfileUI {
             
             if (!userId) {
                 console.log('No user ID found, redirecting to login');
-                window.location.href = `${this.getBaseUrl()}/pages/login.html`;
+                window.location.href = this.buildUrl('pages/login.html');
                 return;
             }
 
@@ -125,7 +132,7 @@ export class ProfileUI {
                     // Clear localStorage data
                     this.clearLocalStorage();
                     
-                    window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
+                    window.location.href = this.buildUrl('pages/dashboard.php');
                     return;
                 }
                 
@@ -163,7 +170,7 @@ export class ProfileUI {
             console.error('Profile check error:', error);
             this.showError('An error occurred while checking your profile. Please try logging in again.');
             setTimeout(() => {
-                window.location.href = `${this.getBaseUrl()}/pages/login.html`;
+                window.location.href = this.buildUrl('pages/login.html');
             }, 2000);
         }
     }
@@ -437,7 +444,7 @@ export class ProfileUI {
             this.showError('Profile completed successfully! Redirecting...', 'success');
             
             setTimeout(() => {
-                window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
+                window.location.href = this.buildUrl('pages/dashboard.php');
             }, 1500);
         } catch (error) {
             console.error('Profile update error:', error);

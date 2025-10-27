@@ -64,7 +64,8 @@ require_once 'includes/maintenance-check.php';
             supabase.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
                     // User is logged in, redirect to dashboard
-                    window.location.href = './pages/dashboard.php';
+                    // Use absolute path starting with / to avoid issues
+                    window.location.href = '/pages/dashboard.php';
                 } else {
                     // User is not logged in, show landing page
                     document.getElementById('loadingOverlay').style.display = 'none';

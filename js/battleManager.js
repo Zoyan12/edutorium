@@ -271,8 +271,11 @@ class BattleManager {
         
         // Store initial question data if provided
         if (data.question) {
-            this.displayQuestion(data.question, data.current || 1, data.total || 5);
-            this.startTimer(30); // Start timer for first question
+            // Handle both 'current' and 'current_round' field names
+            const current = data.current || data.current_round || 1;
+            const total = data.total || data.total_rounds || 5;
+            this.displayQuestion(data.question, current, total);
+            this.startTimer(data.time_limit || 30); // Start timer for first question
         } else {
             console.warn('No question in battleStart message');
         }
@@ -301,8 +304,9 @@ class BattleManager {
     handleNextQuestion(data) {
         console.log('Next question:', data);
         
-        this.state.currentQuestion = data.current || this.state.currentQuestion + 1;
-        this.state.totalQuestions = data.total || 5;
+        // Handle both 'current' and 'current_round' field names
+        this.state.currentQuestion = data.current || data.current_round || this.state.currentQuestion + 1;
+        this.state.totalQuestions = data.total || data.total_rounds || 5;
         this.state.answeredQuestion = false;
         this.state.currentQuestionData = data.question;
 
@@ -315,7 +319,7 @@ class BattleManager {
         this.displayQuestion(data.question, this.state.currentQuestion, this.state.totalQuestions);
         
         // Start timer
-        this.startTimer(data.timer || 30);
+        this.startTimer(data.timer || data.time_limit || 30);
     }
 
     /**
@@ -377,24 +381,45 @@ class BattleManager {
         document.getElementById('currentQuestion').textContent = current;
         document.getElementById('totalQuestions').textContent = total;
 
-        // Hide placeholder, show question image
+        // Display question text
+        const questionText = document.getElementById('questionText');
+        if (questionText && question.question) {
+            questionText.textContent = question.question;
+            questionText.style.display = 'block';
+        }
+
+        // Hide placeholder, show question image if available
         const placeholder = document.querySelector('.question-placeholder');
         const questionImage = document.getElementById('questionImage');
         if (placeholder) placeholder.style.display = 'none';
         if (questionImage) {
-            questionImage.src = question.image_url;
-            questionImage.style.display = 'block';
+            if (question.image_url) {
+                questionImage.src = question.image_url;
+                questionImage.style.display = 'block';
+            } else {
+                questionImage.style.display = 'none';
+            }
         }
 
-        // Update choice buttons
+        // Update choice buttons - support both old format (choicea, choiceb, etc.) and new format (options array)
         const choices = ['A', 'B', 'C', 'D'];
-        choices.forEach(choice => {
+        const options = question.options || [];
+        
+        choices.forEach((choice, index) => {
             const btn = document.getElementById(`choice${choice}`);
             const text = document.getElementById(`choice${choice}Text`);
-            if (btn && text && question[`choice${choice.toLowerCase()}`]) {
-                text.textContent = question[`choice${choice.toLowerCase()}`];
-                btn.disabled = false;
-                btn.addEventListener('click', () => this.submitAnswer(choice));
+            
+            if (btn && text) {
+                // Get option text from either options array or individual fields
+                const optionText = options[index] || question[`choice${choice.toLowerCase()}`] || '';
+                
+                if (optionText) {
+                    text.textContent = optionText;
+                    btn.disabled = false;
+                    // Remove old listener and add new one
+                    btn.replaceWith(btn.cloneNode(true));
+                    document.getElementById(`choice${choice}`).addEventListener('click', () => this.submitAnswer(choice));
+                }
             }
         });
     }

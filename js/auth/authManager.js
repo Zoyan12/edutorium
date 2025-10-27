@@ -21,7 +21,7 @@ export class AuthManager {
             // If force profile completion is set, ensure user stays on profile page
             if (forceProfileCompletion && !currentPath.endsWith('/complete-profile.html')) {
                 console.log('User needs to complete profile, redirecting to profile page');
-                window.location.href = `${basePath}/pages/complete-profile.html`;
+                window.location.href = this.buildUrl('pages/complete-profile.html');
                 return;
             }
             
@@ -44,7 +44,8 @@ export class AuthManager {
                 currentPath === basePath || 
                 currentPath === `${basePath}/`) {
                 console.log('User is already logged in, redirecting to dashboard');
-                window.location.href = `${basePath}/pages/dashboard.php`;
+                // Use buildUrl to ensure proper URL construction
+                window.location.href = this.buildUrl('pages/dashboard.php');
                 return;
             }
         } else {
@@ -88,6 +89,7 @@ export class AuthManager {
     getBaseUrl() {
         const path = window.location.pathname;
         let basePath;
+        
         // Handle different path formats
         if (path.includes('/pages/')) {
             basePath = path.split('/pages')[0];
@@ -97,18 +99,25 @@ export class AuthManager {
             basePath = path;
         }
         
-        // Handle root domain case (path is just "/")
+        // Normalize basePath
+        // If it's just "/", we want empty string for root domain
         if (basePath === '/') {
-            // Check if we're in a subdirectory by looking at document.location.pathname
-            const fullPath = document.location.pathname;
-            if (fullPath.includes('/client/')) {
-                basePath = '/client';
-            } else {
-                basePath = '';
-            }
+            basePath = '';
         }
         
         // Remove trailing slash to avoid double slashes
-        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+        basePath = basePath.endsWith('/') && basePath.length > 1 ? basePath.slice(0, -1) : basePath;
+        
+        return basePath;
+    }
+    
+    /**
+     * Build a URL properly, avoiding double slashes
+     */
+    buildUrl(path) {
+        const base = this.getBaseUrl();
+        // Ensure we don't create double slashes
+        const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+        return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
     }
 } 

@@ -19,19 +19,26 @@ export class AuthUI {
         const path = window.location.pathname;
         let basePath = path.split('/pages')[0];
         
-        // Handle root domain case (path is just "/")
+        // Normalize basePath
+        // If it's just "/", we want empty string for root domain
         if (basePath === '/') {
-            // Check if we're in a subdirectory by looking at document.location.pathname
-            const fullPath = document.location.pathname;
-            if (fullPath.includes('/client/')) {
-                basePath = '/client';
-            } else {
-                basePath = '';
-            }
+            basePath = '';
         }
         
         // Remove trailing slash to avoid double slashes
-        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+        basePath = basePath.endsWith('/') && basePath.length > 1 ? basePath.slice(0, -1) : basePath;
+        
+        return basePath;
+    }
+    
+    /**
+     * Build a URL properly, avoiding double slashes
+     */
+    buildUrl(path) {
+        const base = this.getBaseUrl();
+        // Ensure we don't create double slashes
+        const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+        return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
     }
 
     initializeEventListeners() {
@@ -116,7 +123,7 @@ export class AuthUI {
                     // Store the user ID for profile creation
                     localStorage.setItem('userId', userId);
                     localStorage.setItem('forceProfileCompletion', 'true');
-                    window.location.href = `${this.getBaseUrl()}/pages/complete-profile.html`;
+                    window.location.href = this.buildUrl('pages/complete-profile.html');
                     return;
                 }
                 
@@ -131,13 +138,13 @@ export class AuthUI {
                 localStorage.removeItem('userUsername');
                 localStorage.removeItem('userField');
                 
-                window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
+                window.location.href = this.buildUrl('pages/dashboard.php');
             } else {
                 console.log('Profile incomplete, redirecting to profile completion');
                 // Store the user ID for profile completion
                 localStorage.setItem('userId', userId);
                 localStorage.setItem('forceProfileCompletion', 'true');
-                window.location.href = `${this.getBaseUrl()}/pages/complete-profile.html`;
+                window.location.href = this.buildUrl('pages/complete-profile.html');
             }
         } catch (error) {
             console.error('Profile completion check error:', error);
@@ -254,7 +261,7 @@ export class AuthUI {
     
             setTimeout(() => {
                 console.log('Redirecting to profile completion...');
-                window.location.href = `${this.getBaseUrl()}/pages/complete-profile.html`;
+                window.location.href = this.buildUrl('pages/complete-profile.html');
             }, 2000);
     
         } catch (error) {
