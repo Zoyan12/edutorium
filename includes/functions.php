@@ -210,7 +210,24 @@ function createSetting($key, $value, $description = null) {
  */
 function getWebSocketUrl() {
     // Get the WebSocket URL from the database
-    return getSetting('websocket_url', 'ws://localhost:8080');
+    $url = getSetting('websocket_url', 'ws://localhost:8080');
+    
+    // If the URL is using wss:// and doesn't have a port, append port 3000
+    if (strpos($url, 'wss://') === 0) {
+        // Extract the host part (everything after wss:// and before the first /)
+        $hostPart = substr($url, 6); // Remove 'wss://'
+        $slashPos = strpos($hostPart, '/');
+        if ($slashPos !== false) {
+            $hostPart = substr($hostPart, 0, $slashPos);
+        }
+        
+        // If there's no colon in the host part, it means no port is specified
+        if (strpos($hostPart, ':') === false) {
+            $url = $url . ':3000';
+        }
+    }
+    
+    return $url;
 }
 
 /**
