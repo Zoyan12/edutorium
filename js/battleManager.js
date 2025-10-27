@@ -254,30 +254,35 @@ class BattleManager {
      * Handle battle start
      */
     handleBattleStart(data) {
-        console.log('Battle started:', data);
-        this.hideLoading();
-        
-        this.state.battleType = data.battleType || 'arena';
-        this.updateBattleType();
-        
-        // Update opponent info
-        if (data.players && data.players.length >= 2) {
-            const myUserId = this.userData.userId;
-            const opponent = data.players.find(p => p.userId !== myUserId);
-            if (opponent) {
-                this.updateOpponentInfo(opponent);
+        try {
+            console.log('Battle started:', data);
+            this.hideLoading();
+            
+            this.state.battleType = data.battleType || 'arena';
+            this.updateBattleType();
+            
+            // Update opponent info
+            if (data.players && data.players.length >= 2) {
+                const myUserId = this.userData.userId;
+                const opponent = data.players.find(p => p.userId !== myUserId);
+                if (opponent) {
+                    this.updateOpponentInfo(opponent);
+                }
             }
-        }
-        
-        // Store initial question data if provided
-        if (data.question) {
-            // Handle both 'current' and 'current_round' field names
-            const current = data.current || data.current_round || 1;
-            const total = data.total || data.total_rounds || 5;
-            this.displayQuestion(data.question, current, total);
-            this.startTimer(data.time_limit || 30); // Start timer for first question
-        } else {
-            console.warn('No question in battleStart message');
+            
+            // Store initial question data if provided
+            if (data.question) {
+                // Handle both 'current' and 'current_round' field names
+                const current = data.current || data.current_round || 1;
+                const total = data.total || data.total_rounds || 5;
+                this.displayQuestion(data.question, current, total);
+                this.startTimer(data.time_limit || 30); // Start timer for first question
+            } else {
+                console.warn('No question in battleStart message');
+            }
+        } catch (error) {
+            console.error('Error handling battle start:', error);
+            this.showError('Error starting battle. Please refresh the page.');
         }
     }
     
@@ -378,10 +383,12 @@ class BattleManager {
      */
     displayQuestion(question, current, total) {
         // Update question counter
-        document.getElementById('currentQuestion').textContent = current;
-        document.getElementById('totalQuestions').textContent = total;
+        const currentQuestionEl = document.getElementById('currentQuestion');
+        const totalQuestionsEl = document.getElementById('totalQuestions');
+        if (currentQuestionEl) currentQuestionEl.textContent = current;
+        if (totalQuestionsEl) totalQuestionsEl.textContent = total;
 
-        // Display question text
+        // Display question text (if element exists)
         const questionText = document.getElementById('questionText');
         if (questionText && question.question) {
             questionText.textContent = question.question;

@@ -105,7 +105,7 @@ $hasBypass = isset($_COOKIE['maintenance_bypass']) && $_COOKIE['maintenance_bypa
 
 // If admin has bypass, redirect to dashboard
 if ($isAdmin && $hasBypass) {
-    header('Location: /pages/dashboard.php');
+    header('Location: pages/dashboard.php');
     exit();
 }
 

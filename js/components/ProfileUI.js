@@ -24,6 +24,11 @@ export class ProfileUI {
             basePath = '';
         }
         
+        // For localhost with subdirectory (like /client/), preserve it
+        if (window.location.hostname === 'localhost' && path.includes('/client/')) {
+            basePath = '/client';
+        }
+        
         // Remove trailing slash to avoid double slashes
         basePath = basePath.endsWith('/') && basePath.length > 1 ? basePath.slice(0, -1) : basePath;
         
