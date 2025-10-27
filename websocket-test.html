@@ -1,51 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>WebSocket Connection Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test - Edutorium</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
-    <h1>WebSocket Connection Test</h1>
-    <div id="status">Connecting...</div>
-    <div id="messages"></div>
+    <h1>Edutorium WebSocket Connection Test</h1>
     
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests WebSocket connectivity for the Edutorium Battle System.</p>
+        <p><strong>Expected WebSocket URL:</strong> <code>wss://edutorium.pegioncloud.com/ws/</code></p>
+    </div>
+
+    <div class="test-section">
+        <h3>WebSocket Connection Test</h3>
+        <button onclick="testWebSocket()" id="testBtn">Test WebSocket Connection</button>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Connection Status</h3>
+        <div id="status">Not tested</div>
+    </div>
+
     <script>
+        let ws = null;
+        const log = document.getElementById('log');
         const status = document.getElementById('status');
-        const messages = document.getElementById('messages');
-        
-        // Test the WebSocket connection
-        const wsUrl = 'wss://edutorium-api.pegioncloud.com:3000';
-        console.log('Attempting to connect to:', wsUrl);
-        
-        const ws = new WebSocket(wsUrl);
-        
-        ws.onopen = function() {
-            status.textContent = '✅ Connected successfully!';
-            status.style.color = 'green';
-            messages.innerHTML += '<p>✅ WebSocket connection established</p>';
+        const testBtn = document.getElementById('testBtn');
+
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            log.innerHTML += logEntry + '\n';
+            log.scrollTop = log.scrollHeight;
             
-            // Send a test message
-            ws.send(JSON.stringify({
-                action: 'login',
-                token: 'test-token'
-            }));
-        };
-        
-        ws.onmessage = function(event) {
-            messages.innerHTML += '<p>📨 Received: ' + event.data + '</p>';
-        };
-        
-        ws.onerror = function(error) {
-            status.textContent = '❌ Connection failed';
-            status.style.color = 'red';
-            messages.innerHTML += '<p>❌ WebSocket error: ' + error + '</p>';
-            console.error('WebSocket error:', error);
-        };
-        
-        ws.onclose = function(event) {
-            status.textContent = '🔌 Connection closed';
-            status.style.color = 'orange';
-            messages.innerHTML += '<p>🔌 WebSocket closed: ' + event.code + ' - ' + event.reason + '</p>';
-        };
+            if (type === 'error') {
+                status.innerHTML = '<span style="color: red;">❌ Connection Failed</span>';
+                status.className = 'error';
+            } else if (type === 'success') {
+                status.innerHTML = '<span style="color: green;">✅ Connection Successful</span>';
+                status.className = 'success';
+            }
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+            status.innerHTML = 'Not tested';
+            status.className = '';
+        }
+
+        function testWebSocket() {
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testing...';
+            
+            logMessage('Starting WebSocket connection test...');
+            
+            // Try the proxied WebSocket URL
+            const wsUrl = 'wss://edutorium.pegioncloud.com/ws/';
+            logMessage(`Attempting to connect to: ${wsUrl}`);
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function(event) {
+                    logMessage('✅ WebSocket connection opened successfully!', 'success');
+                    logMessage('Sending test message...');
+                    
+                    // Send a test message
+                    const testMessage = {
+                        action: 'test',
+                        message: 'Hello from WebSocket test',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    ws.send(JSON.stringify(testMessage));
+                    logMessage('Test message sent');
+                };
+                
+                ws.onmessage = function(event) {
+                    logMessage(`📨 Received message: ${event.data}`);
+                };
+                
+                ws.onerror = function(error) {
+                    logMessage(`❌ WebSocket error: ${error}`, 'error');
+                    logMessage('This usually means the WebSocket proxy is not working or the server is not running.');
+                };
+                
+                ws.onclose = function(event) {
+                    logMessage(`🔌 WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+                    testBtn.disabled = false;
+                    testBtn.textContent = 'Test WebSocket Connection';
+                };
+                
+            } catch (error) {
+                logMessage(`❌ Failed to create WebSocket: ${error.message}`, 'error');
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test WebSocket Connection';
+            }
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', function() {
+            logMessage('WebSocket test page loaded');
+            logMessage('Click "Test WebSocket Connection" to begin testing');
+        });
     </script>
 </body>
 </html>

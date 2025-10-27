@@ -146,12 +146,9 @@ class BattleManager {
                 this.handleJoinMatchSuccess(data);
                 break;
                 
+            case 'battleStart':
             case 'battle_started':
                 this.handleBattleStart(data);
-                break;
-                
-            case 'battle_paused':
-                this.handleBattlePaused(data);
                 break;
 
             case 'error':
@@ -287,15 +284,6 @@ class BattleManager {
             console.error('Error handling battle start:', error);
             this.showError('Error starting battle. Please refresh the page.');
         }
-    }
-    
-    /**
-     * Handle battle paused
-     */
-    handleBattlePaused(data) {
-        console.log('Battle paused:', data);
-        this.updateStatus('Battle paused - waiting for opponent to reconnect...');
-        this.showWaitingMessage(data.message || 'Waiting for opponent to reconnect...');
     }
     
     /**
@@ -794,21 +782,6 @@ class BattleManager {
     showError(message) {
         console.error(message);
         alert(message);
-    }
-    
-    /**
-     * Show waiting message
-     */
-    showWaitingMessage(message) {
-        const overlay = document.getElementById('loadingOverlay');
-        const loadingText = document.getElementById('loadingText');
-        
-        if (overlay && loadingText) {
-            loadingText.textContent = message;
-            overlay.style.display = 'flex';
-        } else {
-            console.log('Waiting:', message);
-        }
     }
 
     /**
