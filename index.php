@@ -59,26 +59,6 @@ require_once 'includes/maintenance-check.php';
             document.getElementById('loginBtn').addEventListener('click', () => {
                 window.location.href = './pages/login.html';
             });
-
-            // Check authentication status
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                if (session) {
-                    // User is logged in, redirect to dashboard
-                    // Use absolute path starting with / to avoid issues
-                    window.location.href = '/pages/dashboard.php';
-                } else {
-                    // User is not logged in, show landing page
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    document.querySelector('.landing-container').style.visibility = 'visible';
-                    document.querySelector('.landing-container').style.opacity = '1';
-                }
-            }).catch((error) => {
-                console.error('Error checking session:', error);
-                // Show landing page on error
-                document.getElementById('loadingOverlay').style.display = 'none';
-                document.querySelector('.landing-container').style.visibility = 'visible';
-                document.querySelector('.landing-container').style.opacity = '1';
-            });
         });
     </script>
 </body>

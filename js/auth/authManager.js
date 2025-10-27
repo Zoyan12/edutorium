@@ -64,8 +64,14 @@ export class AuthManager {
                 currentPath.endsWith('/dashboard.php') || 
                 currentPath.endsWith('/complete-profile.html')) {
                 console.log('User is not logged in, redirecting to login page');
-                window.location.href = `${basePath}/pages/login.html`;
+                window.location.href = this.buildUrl('pages/login.html');
                 return;
+            }
+            
+            // If on home page, show the landing page
+            if (currentPath === basePath || currentPath === `${basePath}/` || currentPath === `${basePath}/index.php` || currentPath === `${basePath}/index.html`) {
+                console.log('User not logged in, showing landing page');
+                this.showLandingPage();
             }
         }
     }
@@ -119,5 +125,22 @@ export class AuthManager {
         // Ensure we don't create double slashes
         const cleanPath = path.startsWith('/') ? path.slice(1) : path;
         return base ? `${base}/${cleanPath}` : `/${cleanPath}`;
+    }
+    
+    /**
+     * Show the landing page for non-authenticated users
+     */
+    showLandingPage() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const landingContainer = document.querySelector('.landing-container');
+        
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
+        
+        if (landingContainer) {
+            landingContainer.style.visibility = 'visible';
+            landingContainer.style.opacity = '1';
+        }
     }
 } 
