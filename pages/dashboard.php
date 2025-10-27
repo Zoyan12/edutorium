@@ -1,9 +1,41 @@
 <?php
+// Include maintenance mode check
+require_once '../includes/maintenance-check.php';
+
 // Include the functions file to get getWebSocketUrl()
 require_once '../includes/functions.php';
 
 // Get the WebSocket URL from the database
 $websocketUrl = getWebSocketUrl();
+
+// Check maintenance mode status for display
+$maintenanceStatus = null;
+$isAdmin = false;
+
+// Check if user is admin
+if (isset($_SESSION['user']) && isset($_SESSION['user']['is_admin'])) {
+    $isAdmin = $_SESSION['user']['is_admin'] === true;
+} else if (isset($_SESSION['admin_profile']) && isset($_SESSION['admin_profile']['is_admin'])) {
+    $isAdmin = $_SESSION['admin_profile']['is_admin'] === true;
+}
+
+// Get maintenance status if user is admin
+if ($isAdmin) {
+    try {
+        $response = supabaseRequest(
+            "/rest/v1/maintenance_mode?is_active=eq.true&select=*&order=start_time.desc&limit=1",
+            'GET',
+            null,
+            null
+        );
+        
+        if ($response['status'] === 200 && !empty($response['data'])) {
+            $maintenanceStatus = $response['data'][0];
+        }
+    } catch (Exception $e) {
+        // Ignore errors
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,6 +48,7 @@ $websocketUrl = getWebSocketUrl();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="../css/components/avatar.css">
+    <script src="../js/utils/enhancedMaintenanceChecker.js"></script>
     <style>
         :root {
             --sidebar-width: 250px;
@@ -1668,10 +1701,246 @@ $websocketUrl = getWebSocketUrl();
                 opacity: 1;
             }
         }
+
+        /* Enhanced Opponent Found Popup Styles */
+        .players-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 30px 0;
+            gap: 20px;
+        }
+
+        .player-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .player-card.current-player {
+            border: 2px solid var(--primary-color);
+            background: linear-gradient(135deg, #f8fff8, #e8f5e9);
+        }
+
+        .player-card.opponent-player {
+            border: 2px solid #e0e0e0;
+        }
+
+        .player-avatar {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 3px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-status-indicator {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #ffc107;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid white;
+            transition: all 0.3s ease;
+        }
+
+        .player-status-indicator.ready {
+            background: #4CAF50;
+        }
+
+        .player-status-indicator i {
+            font-size: 12px;
+            color: white;
+        }
+
+        .player-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 8px;
+        }
+
+        .ready-status {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .ready-status.ready {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .vs-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .ready-prompt {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #666;
+            margin: 20px 0;
+        }
+
+        /* Countdown Overlay Styles */
+        .countdown-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .countdown-content {
+            text-align: center;
+            color: white;
+        }
+
+        .countdown-number {
+            font-size: 8rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            animation: countdownPulse 1s ease-in-out;
+        }
+
+        .countdown-text {
+            font-size: 2rem;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes countdownPulse {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .players-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .vs-divider {
+                transform: rotate(90deg);
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
+
+            .player-card {
+                padding: 15px;
+            }
+
+            .player-avatar {
+                width: 60px;
+                height: 60px;
+            }
+
+            .countdown-number {
+                font-size: 6rem;
+            }
+
+            .countdown-text {
+                font-size: 1.5rem;
+            }
+        }
     </style>
 </head>
 
 <body>
+    <?php if ($isAdmin && $maintenanceStatus): ?>
+    <!-- Maintenance Status Banner for Admin -->
+    <div id="maintenance-banner" style="position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 10px 20px; z-index: 10000; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
+            <i class="fas fa-tools" style="font-size: 18px;"></i>
+            <strong>Maintenance Mode Active:</strong>
+            <span><?php echo htmlspecialchars($maintenanceStatus['user_message']); ?></span>
+            <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                Expected: <?php echo htmlspecialchars($maintenanceStatus['expected_resolution']); ?>
+            </span>
+            <a href="../maintenance.php" style="background: rgba(255,255,255,0.2); color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 12px;">
+                <i class="fas fa-eye"></i> View Page
+            </a>
+            <button onclick="window.enhancedMaintenanceChecker.forceCheck()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                <i class="fas fa-sync"></i> Check Status
+            </button>
+            <button onclick="document.getElementById('maintenance-banner').style.display='none'" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                <i class="fas fa-times"></i> Dismiss
+            </button>
+        </div>
+    </div>
+    <style>
+        body { padding-top: 60px; }
+        @media (max-width: 768px) {
+            body { padding-top: 80px; }
+            #maintenance-banner { padding: 15px 10px; }
+            #maintenance-banner > div { flex-direction: column; gap: 10px; }
+        }
+    </style>
+    <?php endif; ?>
+    
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -2149,22 +2418,56 @@ $websocketUrl = getWebSocketUrl();
                     <div class="opponent-found-animation">
                         <i class="fas fa-check-circle"></i>
                     </div>
-                    <h3>Opponent Found!</h3>
-                    <div class="opponent-info">
-                        <div class="opponent-avatar">
-                            <img src="../assets/default.png" alt="Opponent" id="opponentAvatar">
+                    <h3>Quick Battle Opponent Found!</h3>
+                    
+                    <!-- Both Players Display -->
+                    <div class="players-container">
+                        <!-- Current Player -->
+                        <div class="player-card current-player">
+                            <div class="player-avatar">
+                                <img src="../assets/default.png" alt="You" id="currentPlayerAvatar">
+                                <div class="player-status-indicator" id="currentPlayerStatus">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
+                            <div class="player-name" id="currentPlayerName">You</div>
+                            <div class="ready-status" id="currentPlayerReady">Not Ready</div>
                         </div>
-                        <div class="opponent-name" id="opponentName">John Doe</div>
+                        
+                        <!-- VS Divider -->
+                        <div class="vs-divider">
+                            <span>VS</span>
+                        </div>
+                        
+                        <!-- Opponent Player -->
+                        <div class="player-card opponent-player">
+                            <div class="player-avatar">
+                                <img src="../assets/default.png" alt="Opponent" id="opponentAvatar">
+                                <div class="player-status-indicator" id="opponentStatus">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
+                            <div class="player-name" id="opponentName">Opponent</div>
+                            <div class="ready-status" id="opponentReady">Not Ready</div>
+                        </div>
                     </div>
-                    <p>Are you ready for the battle?</p>
-                    <div class="ready-countdown" id="readyCountdown">
-                        <span>3</span>
-                    </div>
+                    
+                    <p class="ready-prompt">Are you ready for the battle?</p>
+                    
+                    <!-- Ready Button -->
                     <div class="matchmaking-buttons">
                         <button class="modal-btn ready" id="readyButton">
                             <i class="fas fa-check"></i>
                             <span>Ready</span>
                         </button>
+                    </div>
+                    
+                    <!-- Countdown Overlay (Hidden by default) -->
+                    <div class="countdown-overlay" id="countdownOverlay" style="display: none;">
+                        <div class="countdown-content">
+                            <div class="countdown-number" id="countdownNumber">3</div>
+                            <div class="countdown-text">Get Ready!</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -3533,7 +3836,10 @@ $websocketUrl = getWebSocketUrl();
         function handleBattleServerMessage(data) {
             console.log('Received from server:', data);
             
-            switch (data.action) {
+            // Handle both 'action' and 'type' fields for compatibility
+            const messageType = data.action || data.type;
+            
+            switch (messageType) {
                 case 'login_success':
                     // After successful login, find a match
                     findMatch();
@@ -3562,6 +3868,7 @@ $websocketUrl = getWebSocketUrl();
                     showToast('warning', 'Opponent Disconnected', data.message);
                     break;
                     
+                case 'matchFound':
                 case 'match_found':
                     // Show opponent found state with real opponent data
                     matchId = data.battle_id;
@@ -3578,14 +3885,24 @@ $websocketUrl = getWebSocketUrl();
                     showOpponentFound(data.opponent);
                     break;
                     
+                case 'opponentReady':
                 case 'opponent_ready':
                     // Show that opponent is ready
                     showOpponentReady();
                     break;
                     
+                case 'bothReady':
                 case 'both_ready':
                     // Both players are ready, start countdown to battle
+                    console.log('Both players ready, starting countdown');
                     startBattleCountdown();
+                    break;
+                    
+                case 'battleStarted':
+                case 'battle_started':
+                    // Battle has started, redirect to battle page
+                    console.log('Battle started, redirecting to battle page');
+                    redirectToBattle();
                     break;
                     
                 case 'battle_start':
@@ -3679,6 +3996,26 @@ $websocketUrl = getWebSocketUrl();
             document.getElementById('opponentName').textContent = opponent.username;
             document.getElementById('opponentAvatar').src = opponent.avatar || '../assets/default.png';
             
+            // Update current player info (get from session or use defaults)
+            const currentPlayerName = document.getElementById('currentPlayerName');
+            const currentPlayerAvatar = document.getElementById('currentPlayerAvatar');
+            
+            // You can get current player info from session or global variables
+            // For now, using defaults - you can enhance this later
+            currentPlayerName.textContent = 'You';
+            currentPlayerAvatar.src = '../assets/default.png';
+            
+            // Reset ready status indicators
+            document.getElementById('currentPlayerStatus').innerHTML = '<i class="fas fa-clock"></i>';
+            document.getElementById('currentPlayerStatus').classList.remove('ready');
+            document.getElementById('currentPlayerReady').textContent = 'Not Ready';
+            document.getElementById('currentPlayerReady').classList.remove('ready');
+            
+            document.getElementById('opponentStatus').innerHTML = '<i class="fas fa-clock"></i>';
+            document.getElementById('opponentStatus').classList.remove('ready');
+            document.getElementById('opponentReady').textContent = 'Not Ready';
+            document.getElementById('opponentReady').classList.remove('ready');
+            
             // Show opponent found state
             searchingState.style.display = 'none';
             opponentFoundState.style.display = 'block';
@@ -3697,6 +4034,12 @@ $websocketUrl = getWebSocketUrl();
                 this.disabled = true;
                 this.innerHTML = '<i class="fas fa-check-circle"></i><span>Ready!</span>';
                 
+                // Update current player status
+                document.getElementById('currentPlayerStatus').innerHTML = '<i class="fas fa-check"></i>';
+                document.getElementById('currentPlayerStatus').classList.add('ready');
+                document.getElementById('currentPlayerReady').textContent = 'Ready';
+                document.getElementById('currentPlayerReady').classList.add('ready');
+                
                 // Tell server player is ready
                 sendToServer({
                     action: 'confirm_match',
@@ -3707,19 +4050,32 @@ $websocketUrl = getWebSocketUrl();
         
         // Start battle countdown
         function startBattleCountdown() {
-            const readyCountdownElement = document.getElementById('readyCountdown');
-            readyCountdownElement.style.display = 'block';
+            const countdownOverlay = document.getElementById('countdownOverlay');
+            const countdownNumber = document.getElementById('countdownNumber');
+            const countdownText = document.querySelector('.countdown-text');
+            
+            // Show countdown overlay
+            countdownOverlay.style.display = 'flex';
             
             let count = 3;
-            readyCountdownElement.querySelector('span').textContent = count;
+            countdownNumber.textContent = count;
+            countdownText.textContent = 'Get Ready!';
             
             const countInterval = setInterval(() => {
                 count--;
-                readyCountdownElement.querySelector('span').textContent = count;
                 
-                if (count <= 0) {
-                    clearInterval(countInterval);
-                    redirectToBattle();
+                if (count > 0) {
+                    countdownNumber.textContent = count;
+                    countdownText.textContent = 'Get Ready!';
+                } else {
+                    countdownNumber.textContent = 'GO!';
+                    countdownText.textContent = 'Battle Starting!';
+                    
+                    // After "GO!" is shown, redirect to battle
+                    setTimeout(() => {
+                        clearInterval(countInterval);
+                        redirectToBattle();
+                    }, 1000);
                 }
             }, 1000);
         }
@@ -3731,17 +4087,12 @@ $websocketUrl = getWebSocketUrl();
                 matchId: matchId,
                 subjects: battleConfig.subjects.join(','),
                 questions: battleConfig.questions || (battleConfig.battleType === 'quick' ? 3 : 5),
-                difficulty: battleConfig.difficulty || 'medium'
+                difficulty: battleConfig.difficulty || 'medium',
+                battleType: battleConfig.battleType || 'arena'
             });
             
-            // Redirect to battle page based on battle type
-            if (battleConfig.battleType === 'quick') {
-                // Redirect to quick battle page
-                window.location.href = `quick_battle_mode.php?${queryParams.toString()}`;
-            } else {
-                // Redirect to regular battle page
-                window.location.href = `battle.php?${queryParams.toString()}`;
-            }
+            // Redirect to battle page (unified page for all battle types)
+            window.location.replace(`battle.php?${queryParams.toString()}`);
         }
 
         // Close matchmaking modal
@@ -3787,16 +4138,14 @@ $websocketUrl = getWebSocketUrl();
 
         // Show opponent is ready message
         function showOpponentReady() {
-            // Create opponent ready indicator if it doesn't exist
-            if (!document.querySelector('.opponent-ready-indicator')) {
-                const opponentReadyIndicator = document.createElement('div');
-                opponentReadyIndicator.className = 'opponent-ready-indicator';
-                opponentReadyIndicator.innerHTML = '<i class="fas fa-check-circle"></i> Opponent is ready!';
-                
-                // Get the opponent-found-state container
-                const opponentFoundState = matchmakingModal.querySelector('.opponent-found-state');
-                opponentFoundState.appendChild(opponentReadyIndicator);
-            }
+            // Update opponent status indicators
+            document.getElementById('opponentStatus').innerHTML = '<i class="fas fa-check"></i>';
+            document.getElementById('opponentStatus').classList.add('ready');
+            document.getElementById('opponentReady').textContent = 'Ready';
+            document.getElementById('opponentReady').classList.add('ready');
+            
+            // Show toast notification
+            showToast('Opponent Ready', 'Your opponent is ready for battle!', 'success');
         }
 
         // Toast notification function

@@ -286,8 +286,13 @@ class BattleServer implements MessageComponentInterface {
         $opponent = $isPlayer1 ? $battle['player2'] : $battle['player1'];
         
         // Get the current question data
-        $currentQuestionData = isset($battle['questions'][$currentQuestion - 1]) ? 
-            $battle['questions'][$currentQuestion - 1] : null;
+        $currentQuestionIndex = $currentQuestion - 1;
+        $currentQuestionData = null;
+        
+        if (isset($battle['questions'][$currentQuestionIndex])) {
+            // Format the question for the client
+            $currentQuestionData = $this->prepareQuestionForClient($battle['questions'][$currentQuestionIndex]);
+        }
         
         // Send battle start message with current state
         $conn->send(json_encode([
@@ -426,12 +431,12 @@ class BattleServer implements MessageComponentInterface {
      * Handle match confirmation
      */
     protected function handleConfirmMatch(ConnectionInterface $conn, $data) {
-        if (!isset($conn->battleData->userId) || !isset($data['matchId'])) {
+        if (!isset($conn->battleData->userId) || (!isset($data['matchId']) && !isset($data['battle_id']))) {
             return;
         }
         
         $userId = $conn->battleData->userId;
-        $matchId = $data['matchId'];
+        $matchId = $data['matchId'] ?? $data['battle_id'];
         
         // Store confirmation
         if (!isset($this->matchConfirmations[$matchId])) {
@@ -526,10 +531,10 @@ class BattleServer implements MessageComponentInterface {
      * Handle answer submission
      */
     protected function handleSubmitAnswer(ConnectionInterface $from, $data) {
-        if (!isset($from->battleData->battleId) || !isset($data['question_id'], $data['answer'], $data['time'])) {
+        if (!isset($from->battleData->battleId)) {
             $from->send(json_encode([
                 'type' => 'error',
-                'error' => 'Invalid answer submission. Missing required fields.'
+                'error' => 'Invalid answer submission. Missing battle ID.'
             ]));
             return;
         }
@@ -546,70 +551,72 @@ class BattleServer implements MessageComponentInterface {
         
         $battle = &$this->activeBattles[$battleId];
         $currentQuestion = $battle['current_question'];
-        $questionId = $data['question_id'];
         
-        // Make sure we're answering the current question
-        if ($questionId != $currentQuestion) {
+        // Determine which player this is
+        $isPlayer1 = ($battle['player1']['connection'] === $from);
+        $player = $isPlayer1 ? 'player1' : 'player2';
+        $opponent = $isPlayer1 ? 'player2' : 'player1';
+        
+        // Check if player already answered this question
+        if (isset($battle[$player]['answers'][$currentQuestion])) {
+            echo "Player {$player} already answered question {$currentQuestion}\n";
+            return;
+        }
+        
+        // Get the current question data
+        $questionIndex = $currentQuestion - 1;
+        if (!isset($battle['questions'][$questionIndex])) {
             $from->send(json_encode([
                 'type' => 'error',
-                'error' => 'Wrong question number.'
+                'error' => 'Invalid question.'
             ]));
             return;
         }
         
-        // Get the correct answer for the current question
-        $correctAnswer = $battle['questions'][$currentQuestion - 1]['correctAnswer'];
-        $isCorrect = ($data['answer'] === $correctAnswer);
+        $question = $battle['questions'][$questionIndex];
+        
+        // Get correct answer (convert index to letter if needed)
+        $correctIndex = $question['correctAnswer'] ?? 0;
+        $correctLetters = ['A', 'B', 'C', 'D'];
+        $correctAnswer = $correctLetters[$correctIndex] ?? 'A';
+        
+        // Extract answer and time
+        $answer = $data['answer'] ?? null;
+        $timeTakenMs = $data['time_taken_ms'] ?? 0;
+        $isSkipped = ($answer === null);
+        
+        // Determine if answer is correct
+        $isCorrect = !$isSkipped && ($answer === $correctAnswer);
+        
+        // Calculate points using new scoring system: +4 for correct, -1 for wrong, 0 for skipped
+        $pointsAwarded = 0;
+        if (!$isSkipped) {
+            $pointsAwarded = $isCorrect ? 4 : -1;
+        }
         
         // Record the answer
-        if ($battle['player1']['connection'] === $from) {
-            $battle['player1']['answers'][$currentQuestion] = [
-                'answer' => $data['answer'],
-                'time' => $data['time'],
-                'correct' => $isCorrect
-            ];
-            
-            if ($isCorrect) {
-                $battle['player1']['score'] += 10 + min(10, $data['time']); // Bonus for speed
-            }
-            
-            // Update health
-            $player1Health = 100 - (count($battle['questions']) - array_sum(array_column($battle['player1']['answers'], 'correct'))) * (100 / count($battle['questions']));
-            
-            // Send result to the player
-            $from->send(json_encode([
-                'type' => 'answerResult',
-                'correctAnswer' => $correctAnswer,
-                'isCorrect' => $isCorrect,
-                'player1Health' => $player1Health,
-                'player2Health' => 100 - (count($battle['questions']) - array_sum(array_column($battle['player2']['answers'], 'correct'))) * (100 / count($battle['questions']))
+        $battle[$player]['answers'][$currentQuestion] = [
+            'answer' => $answer,
+            'time' => $timeTakenMs,
+            'correct' => $isCorrect,
+            'points' => $pointsAwarded
+        ];
+        
+        // Update player score
+        $battle[$player]['score'] += $pointsAwarded;
+        
+        echo "Player {$player} in battle {$battleId} answered question {$currentQuestion}. Answer: {$answer}, Correct: " . ($isCorrect ? "Yes" : "No") . ", Points: {$pointsAwarded}\n";
+        
+        // Store answer in database
+        $this->storeAnswerInDatabase($battle, $player, $questionIndex, $answer, $isCorrect, $isSkipped, $pointsAwarded, $timeTakenMs);
+        
+        // Notify opponent that this player has answered
+        $opponentConnection = $battle[$opponent]['connection'];
+        if ($opponentConnection) {
+            $opponentConnection->send(json_encode([
+                'type' => 'opponentAnswered',
+                'question' => $currentQuestion
             ]));
-            
-            echo "Player 1 in battle {$battleId} answered question {$currentQuestion}. Correct: " . ($isCorrect ? "Yes" : "No") . "\n";
-        } else if ($battle['player2']['connection'] === $from) {
-            $battle['player2']['answers'][$currentQuestion] = [
-                'answer' => $data['answer'],
-                'time' => $data['time'],
-                'correct' => $isCorrect
-            ];
-            
-            if ($isCorrect) {
-                $battle['player2']['score'] += 10 + min(10, $data['time']); // Bonus for speed
-            }
-            
-            // Update health
-            $player2Health = 100 - (count($battle['questions']) - array_sum(array_column($battle['player2']['answers'], 'correct'))) * (100 / count($battle['questions']));
-            
-            // Send result to the player
-            $from->send(json_encode([
-                'type' => 'answerResult',
-                'correctAnswer' => $correctAnswer,
-                'isCorrect' => $isCorrect,
-                'player1Health' => 100 - (count($battle['questions']) - array_sum(array_column($battle['player1']['answers'], 'correct'))) * (100 / count($battle['questions'])),
-                'player2Health' => $player2Health
-            ]));
-            
-            echo "Player 2 in battle {$battleId} answered question {$currentQuestion}. Correct: " . ($isCorrect ? "Yes" : "No") . "\n";
         }
         
         // Check if both players answered
@@ -617,20 +624,179 @@ class BattleServer implements MessageComponentInterface {
         $player2Answered = isset($battle['player2']['answers'][$currentQuestion]);
         
         if ($player1Answered && $player2Answered) {
-            // Both players answered, move to next question
-            $this->moveToNextQuestion($battleId);
-        } else {
-            // Just notify opponent that this player has answered
-            $opponent = $battle['player1']['connection'] === $from ? 
-                $battle['player2']['connection'] : $battle['player1']['connection'];
-                
-            $opponent->send(json_encode([
-                'type' => 'opponentAnswer',
-                'health' => $battle['player1']['connection'] === $from ? 
-                    (100 - (count($battle['questions']) - array_sum(array_column($battle['player1']['answers'], 'correct'))) * (100 / count($battle['questions']))) : 
-                    (100 - (count($battle['questions']) - array_sum(array_column($battle['player2']['answers'], 'correct'))) * (100 / count($battle['questions'])))
-            ]));
+            // Both players answered, send question complete
+            $this->handleQuestionComplete($battleId, $currentQuestion);
         }
+    }
+    
+    /**
+     * Store answer in database
+     */
+    protected function storeAnswerInDatabase($battle, $playerKey, $questionIndex, $answer, $isCorrect, $isSkipped, $pointsAwarded, $timeTakenMs) {
+        try {
+            $battleId = $battle['database_battle_id'] ?? null;
+            $playerId = $battle[$playerKey]['id'];
+            $question = $battle['questions'][$questionIndex];
+            $questionId = $question['id'] ?? null;
+            
+            if (!$questionId) {
+                echo "WARNING: No question ID found for question at index {$questionIndex}\n";
+                return;
+            }
+            
+            if (!$battleId || !$playerId || !$questionId) {
+                echo "ERROR: Cannot store answer - missing required IDs\n";
+                return;
+            }
+            
+            // Use Supabase API to insert the response
+            $supabaseUrl = getenv('SUPABASE_URL') ?: SUPABASE_URL;
+            $supabaseKey = getenv('SUPABASE_KEY') ?: SUPABASE_ANON_KEY;
+            
+            if (!$supabaseUrl || !$supabaseKey) {
+                echo "ERROR: Supabase credentials not found\n";
+                return;
+            }
+            
+            // Determine which table to use based on battle type
+            $tableName = ($battle['battleType'] === 'quick') ? 'quick_battle_responses' : 'battle_responses';
+            
+            $responseData = [
+                'battle_id' => $battleId,
+                'player_id' => $playerId,
+                'question_id' => $questionId,
+                'answer_given' => $answer,
+                'is_correct' => $isCorrect,
+                'is_skipped' => $isSkipped,
+                'points_awarded' => $pointsAwarded,
+                'time_taken_ms' => $timeTakenMs
+            ];
+            
+            $endpoint = $supabaseUrl . '/rest/v1/' . $tableName;
+            $ch = curl_init($endpoint);
+            
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'apikey: ' . $supabaseKey,
+                'Prefer: return=representation'
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($responseData));
+            
+            $response = curl_exec($ch);
+            $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($statusCode === 200 || $statusCode === 201) {
+                echo "Answer stored successfully in database\n";
+            } else {
+                echo "ERROR: Failed to store answer. Status: {$statusCode}, Response: {$response}\n";
+            }
+        } catch (Exception $e) {
+            echo "ERROR: Exception storing answer: " . $e->getMessage() . "\n";
+        }
+    }
+    
+    /**
+     * Handle question completion - send results to both players
+     */
+    protected function handleQuestionComplete($battleId, $questionNumber) {
+        if (!isset($this->activeBattles[$battleId])) {
+            return;
+        }
+        
+        $battle = &$this->activeBattles[$battleId];
+        $questionIndex = $questionNumber - 1;
+        $question = $battle['questions'][$questionIndex];
+        
+        // Convert correct answer index to letter
+        $correctIndex = $question['correctAnswer'] ?? 0;
+        $correctLetters = ['A', 'B', 'C', 'D'];
+        $correctAnswer = $correctLetters[$correctIndex] ?? 'A';
+        
+        // Get player answers
+        $player1Answer = $battle['player1']['answers'][$questionNumber]['answer'] ?? null;
+        $player2Answer = $battle['player2']['answers'][$questionNumber]['answer'] ?? null;
+        $player1Correct = $battle['player1']['answers'][$questionNumber]['correct'] ?? false;
+        $player2Correct = $battle['player2']['answers'][$questionNumber]['correct'] ?? false;
+        
+        // Send results to player 1
+        $battle['player1']['connection']->send(json_encode([
+            'type' => 'questionComplete',
+            'question' => $questionNumber,
+            'correctAnswer' => $correctAnswer,
+            'myAnswer' => $player1Answer,
+            'opponentAnswer' => $player2Answer,
+            'myCorrect' => $player1Correct,
+            'opponentCorrect' => $player2Correct,
+            'player1Score' => $battle['player1']['score'],
+            'player2Score' => $battle['player2']['score']
+        ]));
+        
+        // Send results to player 2
+        $battle['player2']['connection']->send(json_encode([
+            'type' => 'questionComplete',
+            'question' => $questionNumber,
+            'correctAnswer' => $correctAnswer,
+            'myAnswer' => $player2Answer,
+            'opponentAnswer' => $player1Answer,
+            'myCorrect' => $player2Correct,
+            'opponentCorrect' => $player1Correct,
+            'player1Score' => $battle['player1']['score'],
+            'player2Score' => $battle['player2']['score']
+        ]));
+        
+        echo "Question {$questionNumber} complete in battle {$battleId}\n";
+        
+        // Wait a moment for players to see results, then send next question
+        usleep(3000000); // 3 seconds
+        
+        $this->sendNextQuestion($battleId);
+    }
+    
+    /**
+     * Send next question to both players
+     */
+    protected function sendNextQuestion($battleId) {
+        if (!isset($this->activeBattles[$battleId])) {
+            return;
+        }
+        
+        $battle = &$this->activeBattles[$battleId];
+        $battle['current_question']++;
+        
+        // Check if battle is complete
+        if ($battle['current_question'] > count($battle['questions'])) {
+            $this->endBattle($battleId);
+            return;
+        }
+        
+        // Get next question
+        $questionIndex = $battle['current_question'] - 1;
+        $question = $battle['questions'][$questionIndex];
+        
+        // Prepare question data for client
+        $questionData = $this->prepareQuestionForClient($question);
+        
+        // Send to both players
+        $battle['player1']['connection']->send(json_encode([
+            'type' => 'nextQuestion',
+            'question' => $questionData,
+            'current' => $battle['current_question'],
+            'total' => count($battle['questions']),
+            'timer' => 30
+        ]));
+        
+        $battle['player2']['connection']->send(json_encode([
+            'type' => 'nextQuestion',
+            'question' => $questionData,
+            'current' => $battle['current_question'],
+            'total' => count($battle['questions']),
+            'timer' => 30
+        ]));
+        
+        echo "Sent question {$battle['current_question']} to players in battle {$battleId}\n";
     }
     
     /**
@@ -932,35 +1098,28 @@ class BattleServer implements MessageComponentInterface {
         $questionIndex = $battle['current_question'] - 1;
         $question = $battle['questions'][$questionIndex];
         
-        // Send to player 1
+        // Prepare question data for client
+        $questionData = $this->prepareQuestionForClient($question);
+        
+        // Determine message type (battleStart for first question, nextQuestion for others)
+        $messageType = ($battle['current_question'] === 1) ? 'battleStart' : 'nextQuestion';
+        
+        // Send to both players
+        $battleInfo = [
+            'type' => $messageType,
+            'question' => $questionData,
+            'current' => $battle['current_question'],
+            'total' => count($battle['questions']),
+            'timer' => 30,
+            'battleType' => $battle['battleType'] ?? 'arena',
+            'database_battle_id' => $battle['database_battle_id']
+        ];
+        
         if (isset($battle['player1']['connection']) && $battle['player1']['connected']) {
-            $battleInfo = [
-                'type' => 'battleState',
-                'state' => 'question',
-                'question' => $this->prepareQuestionForClient($question),
-                'questionNumber' => $battle['current_question'],
-                'totalQuestions' => count($battle['questions']),
-                'database_battle_id' => $battle['database_battle_id'], // Include formatted UUID
-                'battle_uuid' => $battle['database_battle_id'],        // New parameter with proper UUID
-                'battleType' => $battle['battleType'] ?? 'arena'  // Use the battle's battleType property directly
-            ];
-            
             $battle['player1']['connection']->send(json_encode($battleInfo));
         }
         
-        // Send to player 2
         if (isset($battle['player2']['connection']) && $battle['player2']['connected']) {
-            $battleInfo = [
-                'type' => 'battleState',
-                'state' => 'question',
-                'question' => $this->prepareQuestionForClient($question),
-                'questionNumber' => $battle['current_question'],
-                'totalQuestions' => count($battle['questions']),
-                'database_battle_id' => $battle['database_battle_id'], // Include formatted UUID
-                'battle_uuid' => $battle['database_battle_id'],        // New parameter with proper UUID
-                'battleType' => $battle['battleType'] ?? 'arena'  // Use the battle's battleType property directly
-            ];
-            
             $battle['player2']['connection']->send(json_encode($battleInfo));
         }
     }
@@ -969,9 +1128,36 @@ class BattleServer implements MessageComponentInterface {
      * Prepare question data for sending to clients
      */
     protected function prepareQuestionForClient($question) {
-        // Return a copy of the question without the correct answer
-        $clientQuestion = $question;
-        unset($clientQuestion['correctAnswer']); // Don't send correct answer to clients
+        // Format question for client display
+        $clientQuestion = [
+            'question_id' => $question['id'] ?? null,
+            'image_url' => $question['image_url'] ?? '',
+            'text' => $question['text'] ?? 'View the image for this question',
+            'difficulty' => $question['difficulty'] ?? 'medium',
+            'subject' => $question['subject'] ?? 'general'
+        ];
+        
+        // Add choice options (A, B, C, D)
+        if (isset($question['options']) && is_array($question['options'])) {
+            $clientQuestion['choicea'] = $question['options'][0] ?? 'Option A';
+            $clientQuestion['choiceb'] = $question['options'][1] ?? 'Option B';
+            $clientQuestion['choicec'] = $question['options'][2] ?? 'Option C';
+            $clientQuestion['choiced'] = $question['options'][3] ?? 'Option D';
+        } else {
+            // Fallback choices
+            $clientQuestion['choicea'] = 'Option A';
+            $clientQuestion['choiceb'] = 'Option B';
+            $clientQuestion['choicec'] = 'Option C';
+            $clientQuestion['choiced'] = 'Option D';
+        }
+        
+        // Store correct answer for validation (index converted to letter)
+        if (isset($question['correctAnswer'])) {
+            $correctIndex = $question['correctAnswer'];
+            $correctLetters = ['A', 'B', 'C', 'D'];
+            $clientQuestion['correct_answer_letter'] = $correctLetters[$correctIndex] ?? 'A';
+        }
+        
         return $clientQuestion;
     }
     
@@ -1070,20 +1256,20 @@ class BattleServer implements MessageComponentInterface {
         // Set end time
         $battle['end_time'] = time();
         
-        // Calculate results
+        // Calculate results - scores are already calculated with +4/-1/0 system
         $player1Score = $battle['player1']['score'];
         $player2Score = $battle['player2']['score'];
         
         $player1CorrectAnswers = 0;
         foreach ($battle['player1']['answers'] as $answer) {
-            if ($answer['correct']) {
+            if (isset($answer['correct']) && $answer['correct']) {
                 $player1CorrectAnswers++;
             }
         }
         
         $player2CorrectAnswers = 0;
         foreach ($battle['player2']['answers'] as $answer) {
-            if ($answer['correct']) {
+            if (isset($answer['correct']) && $answer['correct']) {
                 $player2CorrectAnswers++;
             }
         }
@@ -1101,75 +1287,58 @@ class BattleServer implements MessageComponentInterface {
             $battle['battle_result'] = 'Draw';
         }
         
-        // Record the battle type (quick or arena)
-        if (!isset($battle['battle_type'])) {
-            // Use the actual battle type from the battle record
-            $battle['battle_type'] = $battle['battleType'] ?? 'arena';
-            // Log the battle type for debugging
-            echo "Recording battle {$battleId} completion with type: {$battle['battle_type']}\n";
-        }
-        
         $battleTime = $battle['end_time'] - $battle['start_time'];
         $totalQuestions = count($battle['questions']);
-        
-        // Calculate bonus points based on time and correct answers
-        $player1TimeBonus = 0;
-        $player2TimeBonus = 0;
-        
-        foreach ($battle['player1']['answers'] as $answer) {
-            if ($answer['correct']) {
-                $player1TimeBonus += $answer['time'];
-            }
-        }
-        
-        foreach ($battle['player2']['answers'] as $answer) {
-            if ($answer['correct']) {
-                $player2TimeBonus += $answer['time'];
-            }
-        }
         
         // Update battle record in database
         $this->updateBattleInDatabase($battleId, [
             'status' => 'completed',
             'end_time' => date('c', $battle['end_time']),
-            'player1_score' => $player1Score,
-            'player2_score' => $player2Score,
-            'player1_correct' => $player1CorrectAnswers,
-            'player2_correct' => $player2CorrectAnswers,
-            'result' => $battle['battle_result'],
-            'duration' => $battleTime
+            'player1_final_points' => $player1Score,
+            'player2_final_points' => $player2Score,
+            'player1_correct_answers' => $player1CorrectAnswers,
+            'player2_correct_answers' => $player2CorrectAnswers,
+            'battle_result' => $battle['battle_result'],
+            'duration_seconds' => $battleTime,
+            'battle_type' => 'Success'
         ]);
+        
+        // Determine battle end result for each player
+        $player1Result = 'loss';
+        $player2Result = 'loss';
+        if ($player1Won) {
+            $player1Result = 'win';
+        } elseif ($player2Won) {
+            $player2Result = 'win';
+        } elseif ($tie) {
+            $player1Result = 'draw';
+            $player2Result = 'draw';
+        }
         
         // Send results to player 1
         $battle['player1']['connection']->send(json_encode([
             'type' => 'battleEnd',
+            'player1Id' => $battle['player1']['id'],
+            'player2Id' => $battle['player2']['id'],
+            'player1Score' => $player1Score,
+            'player2Score' => $player2Score,
+            'player1Correct' => $player1CorrectAnswers,
+            'player2Correct' => $player2CorrectAnswers,
             'winner' => $player1Won ? $battle['player1']['id'] : ($tie ? null : $battle['player2']['id']),
-            'result' => $player1Won ? 'win' : ($tie ? 'tie' : 'lose'),
-            'stats' => [
-                'your_score' => $player1Score,
-                'opponent_score' => $player2Score,
-                'correctAnswers' => $player1CorrectAnswers,
-                'opponentCorrectAnswers' => $player2CorrectAnswers,
-                'totalQuestions' => $totalQuestions,
-                'timeBonus' => $player1TimeBonus,
-                'pointsEarned' => $player1Score
-            ]
+            'result' => $player1Result
         ]));
         
         // Send results to player 2
         $battle['player2']['connection']->send(json_encode([
             'type' => 'battleEnd',
+            'player1Id' => $battle['player1']['id'],
+            'player2Id' => $battle['player2']['id'],
+            'player1Score' => $player1Score,
+            'player2Score' => $player2Score,
+            'player1Correct' => $player1CorrectAnswers,
+            'player2Correct' => $player2CorrectAnswers,
             'winner' => $player2Won ? $battle['player2']['id'] : ($tie ? null : $battle['player1']['id']),
-            'result' => $player2Won ? 'win' : ($tie ? 'tie' : 'lose'),
-            'stats' => [
-                'your_score' => $player2Score,
-                'opponent_score' => $player1Score,
-                'correctAnswers' => $player2CorrectAnswers,
-                'opponentCorrectAnswers' => $player1CorrectAnswers,
-                'totalQuestions' => $totalQuestions,
-                'timeBonus' => $player2TimeBonus,
-                'pointsEarned' => $player2Score
-            ]
+            'result' => $player2Result
         ]));
         
         // Update player battle states
@@ -1181,7 +1350,7 @@ class BattleServer implements MessageComponentInterface {
         unset($battle['player1']['connection']->battleData->inBattle);
         unset($battle['player2']['connection']->battleData->inBattle);
         
-        echo "Battle {$battleId} ended. Player 1: {$player1Score}, Player 2: {$player2Score}\n";
+        echo "Battle {$battleId} ended. Player 1: {$player1Score} ({$player1CorrectAnswers} correct), Player 2: {$player2Score} ({$player2CorrectAnswers} correct)\n";
         
         // Clean up battle
         unset($this->activeBattles[$battleId]);
@@ -1769,7 +1938,12 @@ class BattleServer implements MessageComponentInterface {
      * Handle join match request
      */
     protected function handleJoinMatch(ConnectionInterface $from, $data) {
+        echo "DEBUG: handleJoinMatch called for user {$from->battleData->username}\n";
+        echo "DEBUG: matchId in data: " . ($data['matchId'] ?? 'NOT SET') . "\n";
+        echo "DEBUG: userId in battleData: " . ($from->battleData->userId ?? 'NOT SET') . "\n";
+        
         if (!isset($from->battleData->userId)) {
+            echo "ERROR: User not logged in\n";
             $from->send(json_encode([
                 'type' => 'error',
                 'error' => 'Not logged in'
@@ -1778,6 +1952,7 @@ class BattleServer implements MessageComponentInterface {
         }
         
         if (!isset($data['matchId'])) {
+            echo "ERROR: Match ID not provided\n";
             $from->send(json_encode([
                 'type' => 'error',
                 'error' => 'Match ID is required'
@@ -1786,15 +1961,20 @@ class BattleServer implements MessageComponentInterface {
         }
         
         $matchId = $data['matchId'];
+        echo "DEBUG: Looking for battle: {$matchId}\n";
+        echo "DEBUG: Active battles count: " . count($this->activeBattles) . "\n";
         
         // Check if battle exists
         if (!isset($this->activeBattles[$matchId])) {
+            echo "ERROR: Battle {$matchId} not found in active battles\n";
             $from->send(json_encode([
                 'type' => 'error',
-                'error' => 'Battle not found'
+                'error' => 'Battle not found. Active battles: ' . count($this->activeBattles)
             ]));
             return;
         }
+        
+        echo "DEBUG: Battle found, proceeding to join\n";
         
         $battle = &$this->activeBattles[$matchId];
         
