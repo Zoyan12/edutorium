@@ -16,8 +16,21 @@ export class ProfileUI {
         // Get the current URL path
         const path = window.location.pathname;
         // Extract the base path (e.g., /new)
-        const basePath = path.split('/pages')[0];
-        return basePath;
+        let basePath = path.split('/pages')[0];
+        
+        // Handle root domain case (path is just "/")
+        if (basePath === '/') {
+            // Check if we're in a subdirectory by looking at document.location.pathname
+            const fullPath = document.location.pathname;
+            if (fullPath.includes('/client/')) {
+                basePath = '/client';
+            } else {
+                basePath = '';
+            }
+        }
+        
+        // Remove trailing slash to avoid double slashes
+        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
     }
 
     initializeEventListeners() {
@@ -112,7 +125,7 @@ export class ProfileUI {
                     // Clear localStorage data
                     this.clearLocalStorage();
                     
-                    window.location.href = `${this.getBaseUrl()}/pages/dashboard.html`;
+                    window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
                     return;
                 }
                 
@@ -424,7 +437,7 @@ export class ProfileUI {
             this.showError('Profile completed successfully! Redirecting...', 'success');
             
             setTimeout(() => {
-                window.location.href = `${this.getBaseUrl()}/pages/dashboard.html`;
+                window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
             }, 1500);
         } catch (error) {
             console.error('Profile update error:', error);

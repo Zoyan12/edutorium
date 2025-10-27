@@ -44,7 +44,7 @@ export class AuthManager {
                 currentPath === basePath || 
                 currentPath === `${basePath}/`) {
                 console.log('User is already logged in, redirecting to dashboard');
-                window.location.href = `${basePath}/pages/dashboard.html`;
+                window.location.href = `${basePath}/pages/dashboard.php`;
                 return;
             }
         } else {
@@ -54,13 +54,13 @@ export class AuthManager {
             
             // List of pages that require authentication
             const protectedPages = [
-                `${basePath}/pages/dashboard.html`,
+                `${basePath}/pages/dashboard.php`,
                 `${basePath}/pages/complete-profile.html`
             ];
             
             // Check if current page requires authentication
             if (protectedPages.includes(currentPath) || 
-                currentPath.endsWith('/dashboard.html') || 
+                currentPath.endsWith('/dashboard.php') || 
                 currentPath.endsWith('/complete-profile.html')) {
                 console.log('User is not logged in, redirecting to login page');
                 window.location.href = `${basePath}/pages/login.html`;
@@ -87,13 +87,28 @@ export class AuthManager {
     // Get the base URL for redirects
     getBaseUrl() {
         const path = window.location.pathname;
+        let basePath;
         // Handle different path formats
         if (path.includes('/pages/')) {
-            return path.split('/pages')[0];
-        } else if (path.endsWith('.html')) {
-            return path.substring(0, path.lastIndexOf('/'));
+            basePath = path.split('/pages')[0];
+        } else if (path.endsWith('.html') || path.endsWith('.php')) {
+            basePath = path.substring(0, path.lastIndexOf('/'));
         } else {
-            return path;
+            basePath = path;
         }
+        
+        // Handle root domain case (path is just "/")
+        if (basePath === '/') {
+            // Check if we're in a subdirectory by looking at document.location.pathname
+            const fullPath = document.location.pathname;
+            if (fullPath.includes('/client/')) {
+                basePath = '/client';
+            } else {
+                basePath = '';
+            }
+        }
+        
+        // Remove trailing slash to avoid double slashes
+        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
     }
 } 

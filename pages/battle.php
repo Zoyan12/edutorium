@@ -7,7 +7,7 @@ require_once '../includes/functions.php';
 
 // Restrict direct access - must come from dashboard or have matchId
 if (!isset($_GET['matchId']) && !isset($_SESSION['user'])) {
-    header('Location: dashboard.php?error=direct_access_denied');
+    header('Location: /pages/dashboard.php?error=direct_access_denied');
     exit();
 }
 

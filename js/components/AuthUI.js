@@ -17,8 +17,21 @@ export class AuthUI {
 
     getBaseUrl() {
         const path = window.location.pathname;
-        const basePath = path.split('/pages')[0];
-        return basePath;
+        let basePath = path.split('/pages')[0];
+        
+        // Handle root domain case (path is just "/")
+        if (basePath === '/') {
+            // Check if we're in a subdirectory by looking at document.location.pathname
+            const fullPath = document.location.pathname;
+            if (fullPath.includes('/client/')) {
+                basePath = '/client';
+            } else {
+                basePath = '';
+            }
+        }
+        
+        // Remove trailing slash to avoid double slashes
+        return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
     }
 
     initializeEventListeners() {
@@ -118,7 +131,7 @@ export class AuthUI {
                 localStorage.removeItem('userUsername');
                 localStorage.removeItem('userField');
                 
-                window.location.href = `${this.getBaseUrl()}/pages/dashboard.html`;
+                window.location.href = `${this.getBaseUrl()}/pages/dashboard.php`;
             } else {
                 console.log('Profile incomplete, redirecting to profile completion');
                 // Store the user ID for profile completion

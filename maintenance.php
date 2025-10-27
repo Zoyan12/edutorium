@@ -49,7 +49,7 @@ if (!$isPreview) {
         } else {
             // Check if user is logged in and redirect to dashboard
             if (isset($_SESSION['user']) && isset($_SESSION['user']['id'])) {
-                $redirectTo = 'pages/dashboard.php';
+                $redirectTo = '/pages/dashboard.php';
             }
         }
         
@@ -105,7 +105,7 @@ $hasBypass = isset($_COOKIE['maintenance_bypass']) && $_COOKIE['maintenance_bypa
 
 // If admin has bypass, redirect to dashboard
 if ($isAdmin && $hasBypass) {
-    header('Location: pages/dashboard.php');
+    header('Location: /pages/dashboard.php');
     exit();
 }
 
